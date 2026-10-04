@@ -9,6 +9,8 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
+from app.norms import STANDARDS, SUPPORTED_STANDARDS
+
 app = FastAPI(
     title="Higiene Ocupacional MVP",
     version="0.1.0",
@@ -46,11 +48,13 @@ class VibrationRequest(BaseModel):
     acceleration: float
     exposure_hours: float = 8.0
     vibration_type: Literal["HAND_ARM", "WHOLE_BODY"] = "HAND_ARM"
+    standard: Literal["ACGIH", "NR15", "LINARCH"] = "ACGIH"
 
 
 class HeatRequest(BaseModel):
     wbgt: float
     workload: Literal["LIGHT", "MODERATE", "HEAVY", "VERY_HEAVY"] = "MODERATE"
+    standard: Literal["ACGIH", "NR15", "LINARCH"] = "ACGIH"
 
 
 class NoiseResponse(BaseModel):
@@ -91,6 +95,14 @@ def health_check() -> dict:
     return {"status": "ok", "service": "higiene-ocupacional-mvp"}
 
 
+@app.get("/api/norms")
+def list_supported_norms() -> dict:
+    return {
+        "standards": SUPPORTED_STANDARDS,
+        "notes": "Base de referência inicial para apoio ao cálculo e avaliação. A interpretação final deve ser revisada por profissional habilitado.",
+    }
+
+
 def calculate_leq(levels: List[float]) -> float:
     if not levels:
         raise ValueError("No measurements provided.")
@@ -99,12 +111,7 @@ def calculate_leq(levels: List[float]) -> float:
 
 
 def noise_limit_by_standard(standard: str) -> float:
-    mapping = {
-        "ACGIH": 85.0,
-        "NR15": 85.0,
-        "LINARCH": 85.0,
-    }
-    return mapping.get(standard, 85.0)
+    return STANDARDS.get(standard, STANDARDS["ACGIH"])["noise_db"]
 
 
 @app.post("/api/noise/calculate", response_model=NoiseResponse)
@@ -159,10 +166,11 @@ def calculate_chemicals(payload: ChemicalRequest):
     max_ratio = max(ratios) if ratios else 0.0
     exceeds_limit = sum_ratio > 1.0 or max_ratio > 1.0
 
-    if exceeds_limit:
-        interpretation = "Há excesso em relação ao limite de exposição aplicado."
-    else:
-        interpretation = "A soma das exposições permanece dentro dos limites aplicáveis."
+    interpretation = (
+        "Há excesso em relação ao limite de exposição aplicado."
+        if exceeds_limit
+        else "A soma das exposições permanece dentro dos limites aplicáveis."
+    )
 
     return ChemicalResponse(
         standard=payload.standard,
@@ -178,21 +186,23 @@ def calculate_vibration(payload: VibrationRequest):
     if payload.exposure_hours <= 0:
         raise HTTPException(status_code=400, detail="exposure_hours deve ser maior que zero")
 
+    standard_limits = STANDARDS.get(payload.standard, STANDARDS["ACGIH"])
     if payload.vibration_type == "HAND_ARM":
-        limit_value = 5.0
+        limit_value = standard_limits["vibration_hand_arm"]
     else:
-        limit_value = 0.8
+        limit_value = standard_limits["vibration_whole_body"]
 
     a8 = payload.acceleration * math.sqrt(payload.exposure_hours / 8.0)
     exceeds_limit = a8 > limit_value
 
-    if exceeds_limit:
-        interpretation = "A vibração excede o limite de exposição recomendado."
-    else:
-        interpretation = "A vibração está dentro do limite recomendado para a exposição avaliada."
+    interpretation = (
+        "A vibração excede o limite de exposição recomendado."
+        if exceeds_limit
+        else "A vibração está dentro do limite recomendado para a exposição avaliada."
+    )
 
     return VibrationResponse(
-        standard="ACGIH",
+        standard=payload.standard,
         a8=round(a8, 3),
         limit_value=limit_value,
         exceeds_limit=exceeds_limit,
@@ -202,22 +212,18 @@ def calculate_vibration(payload: VibrationRequest):
 
 @app.post("/api/heat/calculate", response_model=HeatResponse)
 def calculate_heat(payload: HeatRequest):
-    workload_limits = {
-        "LIGHT": 30.0,
-        "MODERATE": 28.5,
-        "HEAVY": 27.0,
-        "VERY_HEAVY": 25.5,
-    }
-    allowable_limit = workload_limits[payload.workload]
+    standard_limits = STANDARDS.get(payload.standard, STANDARDS["ACGIH"])
+    allowable_limit = standard_limits["heat"][payload.workload]
     exceeds_limit = payload.wbgt > allowable_limit
 
-    if exceeds_limit:
-        interpretation = "O valor de WBGT excede o limite recomendado para o tipo de esforço físico." 
-    else:
-        interpretation = "O WBGT está dentro do limite recomendado para o esforço físico avaliado."
+    interpretation = (
+        "O valor de WBGT excede o limite recomendado para o tipo de esforço físico."
+        if exceeds_limit
+        else "O WBGT está dentro do limite recomendado para o esforço físico avaliado."
+    )
 
     return HeatResponse(
-        standard="ACGIH",
+        standard=payload.standard,
         wbgt=round(payload.wbgt, 2),
         allowable_limit=allowable_limit,
         exceeds_limit=exceeds_limit,

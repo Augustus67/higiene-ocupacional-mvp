@@ -64,6 +64,8 @@ function App() {
   const [vibrationResult, setVibrationResult] = useState<any>(null);
   const [heatResult, setHeatResult] = useState<any>(null);
 
+  const defaultStandards = ['ACGIH', 'NR15', 'LINARCH'];
+
   const fetchJson = async <T,>(path: string): Promise<T> => {
     const response = await fetch(`${API_URL}${path}`);
     if (!response.ok) {
@@ -79,9 +81,18 @@ function App() {
         fetchJson<Standard[]>('/api/standards'),
         fetchJson<Chemical[]>('/api/chemicals'),
       ]);
+
       setCompanies(companyList);
       setStandards(standardList);
       setChemicals(chemicalList);
+
+      if (standardList.length > 0) {
+        const nextStandard = standardList[0].name;
+        setNoiseData((previous) => ({ ...previous, standard: nextStandard }));
+        setChemicalData((previous) => ({ ...previous, standard: nextStandard }));
+        setVibrationData((previous) => ({ ...previous, standard: nextStandard }));
+        setHeatData((previous) => ({ ...previous, standard: nextStandard }));
+      }
     } catch (error) {
       console.error(error);
     }
@@ -211,6 +222,8 @@ function App() {
 
     setHeatResult(await response.json());
   };
+
+  const standardOptions = standards.length > 0 ? standards.map((item) => item.name) : defaultStandards;
 
   return (
     <div className="app-shell">
@@ -373,9 +386,9 @@ function App() {
                 value={noiseData.standard}
                 onChange={(event) => setNoiseData({ ...noiseData, standard: event.target.value })}
               >
-                <option value="ACGIH">ACGIH</option>
-                <option value="NR15">NR-15</option>
-                <option value="LINARCH">Linarch</option>
+                {standardOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
             </label>
             <button className="primary" onClick={handleNoiseSubmit}>Calcular</button>
@@ -402,9 +415,9 @@ function App() {
                 value={chemicalData.standard}
                 onChange={(event) => setChemicalData({ ...chemicalData, standard: event.target.value })}
               >
-                <option value="ACGIH">ACGIH</option>
-                <option value="NR15">NR-15</option>
-                <option value="LINARCH">Linarch</option>
+                {standardOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
             </label>
             <label>
@@ -472,9 +485,9 @@ function App() {
                 value={vibrationData.standard}
                 onChange={(event) => setVibrationData({ ...vibrationData, standard: event.target.value })}
               >
-                <option value="ACGIH">ACGIH</option>
-                <option value="NR15">NR-15</option>
-                <option value="LINARCH">Linarch</option>
+                {standardOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
             </label>
             <button className="primary" onClick={handleVibrationSubmit}>Calcular</button>
@@ -521,9 +534,9 @@ function App() {
                 value={heatData.standard}
                 onChange={(event) => setHeatData({ ...heatData, standard: event.target.value })}
               >
-                <option value="ACGIH">ACGIH</option>
-                <option value="NR15">NR-15</option>
-                <option value="LINARCH">Linarch</option>
+                {standardOptions.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
               </select>
             </label>
             <button className="primary" onClick={handleHeatSubmit}>Calcular</button>

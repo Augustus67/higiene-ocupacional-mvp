@@ -1,5 +1,3 @@
-# FastAPI app for hygiene occupational MVP
-
 from __future__ import annotations
 
 import math
@@ -33,6 +31,20 @@ from app.schemas import (
 )
 
 Base.metadata.create_all(bind=engine)
+
+
+def seed_default_standards() -> None:
+    from app.database import SessionLocal
+
+    with SessionLocal() as db:
+        for name in SUPPORTED_STANDARDS:
+            existing = db.query(Standard).filter(Standard.name == name).first()
+            if not existing:
+                db.add(Standard(name=name, description=f"Norma de referência {name}", is_active=True))
+        db.commit()
+
+
+seed_default_standards()
 
 app = FastAPI(
     title="Higiene Ocupacional MVP",

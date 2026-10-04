@@ -14,7 +14,7 @@ Este repositório contém um MVP funcional com:
 - frontend em React + TypeScript
 - banco SQLite para uso local em desenvolvimento
 - cálculos iniciais de ruído, vibração, calor e químicos
-- relatórios em tela com comparação de limites
+- cadastro inicial de empresas, setores, locais, trabalhadores e normas
 
 ## Estrutura
 
@@ -26,10 +26,11 @@ Este repositório contém um MVP funcional com:
 
 - Python 3.11+
 - FastAPI
+- SQLAlchemy
+- SQLite (MVP)
 - React
 - TypeScript
 - Vite
-- SQLite (MVP)
 
 ## Como executar
 
@@ -61,6 +62,14 @@ A API fica disponível em:
 
 - `GET /health`
 - `GET /api/norms`
+- `GET /api/companies`
+- `POST /api/companies`
+- `GET /api/standards`
+- `POST /api/standards`
+- `GET /api/chemicals`
+- `POST /api/chemicals`
+- `GET /api/exposure-limits`
+- `POST /api/exposure-limits`
 - `POST /api/noise/calculate`
 - `POST /api/chemicals/calculate`
 - `POST /api/vibration/calculate`
@@ -72,9 +81,8 @@ Este projeto é um suporte para cálculo e análise técnica. A interpretação 
 
 ## Próximos passos recomendados
 
-- cadastro de empresas/locais/funcionários
-- persistência com PostgreSQL
-- autenticação
+- autenticação de usuários
 - geração de laudos PDF/Excel
-- módulos específicos de NR-15 e anexos
-- gestão de substâncias com base normativa configurável
+- cadastro de avaliações por trabalhador e ambiente
+- gestão de substâncias com limites por norma em banco
+- dashboard para visão geral da empresa

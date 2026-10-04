@@ -21,7 +21,7 @@ Este repositório contém um MVP funcional com:
 - `backend/` — API FastAPI
 - `frontend/` — aplicação web em React
 - `README.md` — documentação
-a
+
 ## Tecnologias
 
 - Python 3.11+
@@ -60,6 +60,7 @@ A API fica disponível em:
 ## Endpoints principais
 
 - `GET /health`
+- `GET /api/norms`
 - `POST /api/noise/calculate`
 - `POST /api/chemicals/calculate`
 - `POST /api/vibration/calculate`

@@ -18,6 +18,7 @@ class Company(Base):
 
     sectors = relationship("Sector", back_populates="company")
     workplaces = relationship("Workplace", back_populates="company")
+    assessments = relationship("Assessment", back_populates="company")
 
 
 class Sector(Base):
@@ -45,6 +46,8 @@ class Workplace(Base):
 
     company = relationship("Company", back_populates="workplaces")
     sector = relationship("Sector", back_populates="workplaces")
+    workers = relationship("Worker", back_populates="workplace")
+    assessments = relationship("Assessment", back_populates="workplace")
 
 
 class Worker(Base):
@@ -56,6 +59,8 @@ class Worker(Base):
     workplace_id = Column(Integer, ForeignKey("workplaces.id"), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    workplace = relationship("Workplace", back_populates="workers")
+
 
 class Standard(Base):
     __tablename__ = "standards"
@@ -66,6 +71,7 @@ class Standard(Base):
     is_active = Column(Boolean, default=True)
 
     limits = relationship("ExposureLimit", back_populates="standard")
+    assessments = relationship("Assessment", back_populates="standard")
 
 
 class Chemical(Base):
@@ -106,6 +112,6 @@ class Assessment(Base):
     workplace_id = Column(Integer, ForeignKey("workplaces.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    standard = relationship("Standard")
-    company = relationship("Company")
-    workplace = relationship("Workplace")
+    standard = relationship("Standard", back_populates="assessments")
+    company = relationship("Company", back_populates="assessments")
+    workplace = relationship("Workplace", back_populates="assessments")

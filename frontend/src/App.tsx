@@ -1,11 +1,39 @@
-import { useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
-type TabKey = 'noise' | 'chemicals' | 'vibration' | 'heat';
+type TabKey = 'dashboard' | 'noise' | 'chemicals' | 'vibration' | 'heat';
+
+type Company = {
+  id: number;
+  name: string;
+  cnpj?: string;
+  description?: string;
+};
+
+type Standard = {
+  id: number;
+  name: string;
+  description?: string;
+  is_active: boolean;
+};
+
+type Chemical = {
+  id: number;
+  name: string;
+  cas_number?: string;
+  description?: string;
+};
 
 function App() {
-  const [tab, setTab] = useState<TabKey>('noise');
+  const [tab, setTab] = useState<TabKey>('dashboard');
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [standards, setStandards] = useState<Standard[]>([]);
+  const [chemicals, setChemicals] = useState<Chemical[]>([]);
+
+  const [companyForm, setCompanyForm] = useState({ name: '', cnpj: '', description: '' });
+  const [standardForm, setStandardForm] = useState({ name: '', description: '' });
+  const [chemicalForm, setChemicalForm] = useState({ name: '', cas_number: '', description: '' });
 
   const [noiseData, setNoiseData] = useState({
     levels: '85,90,88',
@@ -22,17 +50,88 @@ function App() {
     acceleration: '4.5',
     exposure_hours: '8',
     vibration_type: 'HAND_ARM',
+    standard: 'ACGIH',
   });
 
   const [heatData, setHeatData] = useState({
     wbgt: '29',
     workload: 'MODERATE',
+    standard: 'ACGIH',
   });
 
   const [noiseResult, setNoiseResult] = useState<any>(null);
   const [chemicalResult, setChemicalResult] = useState<any>(null);
   const [vibrationResult, setVibrationResult] = useState<any>(null);
   const [heatResult, setHeatResult] = useState<any>(null);
+
+  const fetchJson = async <T,>(path: string): Promise<T> => {
+    const response = await fetch(`${API_URL}${path}`);
+    if (!response.ok) {
+      throw new Error(`Erro ao consultar ${path}`);
+    }
+    return response.json();
+  };
+
+  const loadData = async () => {
+    try {
+      const [companyList, standardList, chemicalList] = await Promise.all([
+        fetchJson<Company[]>('/api/companies'),
+        fetchJson<Standard[]>('/api/standards'),
+        fetchJson<Chemical[]>('/api/chemicals'),
+      ]);
+      setCompanies(companyList);
+      setStandards(standardList);
+      setChemicals(chemicalList);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    void loadData();
+  }, []);
+
+  const handleCreateCompany = async (event: FormEvent) => {
+    event.preventDefault();
+    const response = await fetch(`${API_URL}/api/companies`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(companyForm),
+    });
+
+    if (response.ok) {
+      setCompanyForm({ name: '', cnpj: '', description: '' });
+      await loadData();
+    }
+  };
+
+  const handleCreateStandard = async (event: FormEvent) => {
+    event.preventDefault();
+    const response = await fetch(`${API_URL}/api/standards`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...standardForm, is_active: true }),
+    });
+
+    if (response.ok) {
+      setStandardForm({ name: '', description: '' });
+      await loadData();
+    }
+  };
+
+  const handleCreateChemical = async (event: FormEvent) => {
+    event.preventDefault();
+    const response = await fetch(`${API_URL}/api/chemicals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(chemicalForm),
+    });
+
+    if (response.ok) {
+      setChemicalForm({ name: '', cas_number: '', description: '' });
+      await loadData();
+    }
+  };
 
   const handleNoiseSubmit = async () => {
     const levels = noiseData.levels
@@ -50,8 +149,7 @@ function App() {
       }),
     });
 
-    const data = await response.json();
-    setNoiseResult(data);
+    setNoiseResult(await response.json());
   };
 
   const handleChemicalSubmit = async () => {
@@ -82,8 +180,7 @@ function App() {
       }),
     });
 
-    const data = await response.json();
-    setChemicalResult(data);
+    setChemicalResult(await response.json());
   };
 
   const handleVibrationSubmit = async () => {
@@ -94,11 +191,11 @@ function App() {
         acceleration: Number(vibrationData.acceleration),
         exposure_hours: Number(vibrationData.exposure_hours),
         vibration_type: vibrationData.vibration_type,
+        standard: vibrationData.standard,
       }),
     });
 
-    const data = await response.json();
-    setVibrationResult(data);
+    setVibrationResult(await response.json());
   };
 
   const handleHeatSubmit = async () => {
@@ -108,11 +205,11 @@ function App() {
       body: JSON.stringify({
         wbgt: Number(heatData.wbgt),
         workload: heatData.workload,
+        standard: heatData.standard,
       }),
     });
 
-    const data = await response.json();
-    setHeatResult(data);
+    setHeatResult(await response.json());
   };
 
   return (
@@ -125,12 +222,13 @@ function App() {
       </header>
 
       <nav className="tab-list">
-        {['noise', 'chemicals', 'vibration', 'heat'].map((item) => (
+        {['dashboard', 'noise', 'chemicals', 'vibration', 'heat'].map((item) => (
           <button
             key={item}
             className={tab === item ? 'tab active' : 'tab'}
             onClick={() => setTab(item as TabKey)}
           >
+            {item === 'dashboard' && 'Dashboard'}
             {item === 'noise' && 'Ruído'}
             {item === 'chemicals' && 'Químicos'}
             {item === 'vibration' && 'Vibração'}
@@ -140,6 +238,115 @@ function App() {
       </nav>
 
       <main className="content">
+        {tab === 'dashboard' && (
+          <section className="panel">
+            <h2>Dashboard administrativo</h2>
+
+            <div className="stat-grid">
+              <div className="stat-card">
+                <span>Empresas</span>
+                <strong>{companies.length}</strong>
+              </div>
+              <div className="stat-card">
+                <span>Normas</span>
+                <strong>{standards.length}</strong>
+              </div>
+              <div className="stat-card">
+                <span>Substâncias</span>
+                <strong>{chemicals.length}</strong>
+              </div>
+            </div>
+
+            <div className="two-column-grid">
+              <form className="card" onSubmit={handleCreateCompany}>
+                <h3>Cadastrar empresa</h3>
+                <label>
+                  Nome
+                  <input
+                    value={companyForm.name}
+                    onChange={(event) => setCompanyForm({ ...companyForm, name: event.target.value })}
+                  />
+                </label>
+                <label>
+                  CNPJ
+                  <input
+                    value={companyForm.cnpj}
+                    onChange={(event) => setCompanyForm({ ...companyForm, cnpj: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Descrição
+                  <textarea
+                    rows={3}
+                    value={companyForm.description}
+                    onChange={(event) => setCompanyForm({ ...companyForm, description: event.target.value })}
+                  />
+                </label>
+                <button type="submit" className="primary">Salvar empresa</button>
+              </form>
+
+              <form className="card" onSubmit={handleCreateStandard}>
+                <h3>Cadastrar norma</h3>
+                <label>
+                  Nome
+                  <input
+                    value={standardForm.name}
+                    onChange={(event) => setStandardForm({ ...standardForm, name: event.target.value })}
+                  />
+                </label>
+                <label>
+                  Descrição
+                  <textarea
+                    rows={3}
+                    value={standardForm.description}
+                    onChange={(event) => setStandardForm({ ...standardForm, description: event.target.value })}
+                  />
+                </label>
+                <button type="submit" className="primary">Salvar norma</button>
+              </form>
+            </div>
+
+            <div className="card">
+              <h3>Listagem rápida</h3>
+              <div className="list-group">
+                {companies.map((company) => (
+                  <div key={company.id} className="mini-item">
+                    <strong>{company.name}</strong>
+                    <span>{company.cnpj || 'Sem CNPJ'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <form className="card" onSubmit={handleCreateChemical}>
+              <h3>Cadastrar substância</h3>
+              <label>
+                Nome
+                <input
+                  value={chemicalForm.name}
+                  onChange={(event) => setChemicalForm({ ...chemicalForm, name: event.target.value })}
+                />
+              </label>
+              <label>
+                CAS
+                <input
+                  value={chemicalForm.cas_number}
+                  onChange={(event) => setChemicalForm({ ...chemicalForm, cas_number: event.target.value })}
+                />
+              </label>
+              <label>
+                Descrição
+                <textarea
+                  rows={3}
+                  value={chemicalForm.description}
+                  onChange={(event) => setChemicalForm({ ...chemicalForm, description: event.target.value })}
+                />
+              </label>
+              <button type="submit" className="primary">Salvar substância</button>
+            </form>
+          </section>
+        )}
+
         {tab === 'noise' && (
           <section className="panel">
             <h2>Cálculo de Ruído</h2>
@@ -259,6 +466,17 @@ function App() {
                 <option value="WHOLE_BODY">Corpo inteiro</option>
               </select>
             </label>
+            <label>
+              Norma
+              <select
+                value={vibrationData.standard}
+                onChange={(event) => setVibrationData({ ...vibrationData, standard: event.target.value })}
+              >
+                <option value="ACGIH">ACGIH</option>
+                <option value="NR15">NR-15</option>
+                <option value="LINARCH">Linarch</option>
+              </select>
+            </label>
             <button className="primary" onClick={handleVibrationSubmit}>Calcular</button>
 
             {vibrationResult && (
@@ -297,6 +515,17 @@ function App() {
                 </select>
               </label>
             </div>
+            <label>
+              Norma
+              <select
+                value={heatData.standard}
+                onChange={(event) => setHeatData({ ...heatData, standard: event.target.value })}
+              >
+                <option value="ACGIH">ACGIH</option>
+                <option value="NR15">NR-15</option>
+                <option value="LINARCH">Linarch</option>
+              </select>
+            </label>
             <button className="primary" onClick={handleHeatSubmit}>Calcular</button>
 
             {heatResult && (
